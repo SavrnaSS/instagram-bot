@@ -2,4 +2,3 @@ selenium==4.21.0
 pytz
 python-dotenv
 packaging
-setuptools
