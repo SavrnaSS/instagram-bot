@@ -4,4 +4,4 @@ pytz
 python-dotenv
 packaging
 setuptools
-blinker
+blinker==1.4.2
