@@ -1,7 +1,6 @@
 import os
 import time
 import pickle
-import tempfile
 import subprocess
 import shutil
 from datetime import datetime
@@ -14,14 +13,12 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, ElementClickInterceptedException
+from selenium.common.exceptions import TimeoutException, WebDriverException
 
-# Load .env
+# ─── Load environment ─────────────────────────────────────────────────────────
 load_dotenv()
-
-# ─── Settings ────────────────────────────────────────────────────────────────
-USERNAME          = os.getenv("US", "bellequotient")
-PASSWORD          = os.getenv("PAS", "8426G65AKI51638286")
+USERNAME          = os.getenv("IG_USERNAME", "bellequotient")
+PASSWORD          = os.getenv("IG_PASSWORD", "8426G65AKI51638286")
 CHROMEDRIVER_PATH = shutil.which("chromedriver") or "/usr/local/bin/chromedriver"
 BASE_IMAGE_DIR    = os.getenv("BASE_IMAGE_DIR", "/home/ubuntu/instagram_bot/pictures_selfie")
 POST_SCHEDULE     = [
@@ -30,11 +27,11 @@ POST_SCHEDULE     = [
      "time": "2025-05-04 14:12:00"},
     {"image": os.path.join(BASE_IMAGE_DIR, "selfie_0.jpg"),
      "caption": "Hey, Whatsapp?",
-     "time": "2025-05-04 14:13:00"}
+     "time": "2025-05-04 14:13:00"},
 ]
 IST = pytz.timezone("Asia/Kolkata")
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+# ─── Helpers ───────────────────────────────────────────────────────────────────
 def wait_until(schedule_time_str: str):
     scheduled = IST.localize(datetime.strptime(schedule_time_str, "%Y-%m-%d %H:%M:%S"))
     while True:
@@ -44,168 +41,152 @@ def wait_until(schedule_time_str: str):
             print(f"[{schedule_time_str}] waiting {diff:.0f}s…")
             time.sleep(min(diff, 60))
         else:
-            print(f"[{schedule_time_str}] reached.")
             return
 
 def save_cookies(driver):
     with open("cookies.pkl", "wb") as f:
         pickle.dump(driver.get_cookies(), f)
 
-def load_cookies(driver):
+def load_cookies(driver, wait):
+    # Navigate once so cookies can be added
+    try:
+        driver.get("https://www.instagram.com/")
+        wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+    except Exception:
+        pass
+    # Load cookie file
     try:
         with open("cookies.pkl", "rb") as f:
-            for cookie in pickle.load(f):
-                driver.add_cookie(cookie)
-        print("✅ Loaded cookies")
+            for c in pickle.load(f):
+                try:
+                    driver.add_cookie(c)
+                except Exception:
+                    continue
+        print("✅ Loaded cookies safely")
     except FileNotFoundError:
-        print("⚠️ No cookies found")
+        print("⚠️ No cookies file found")
 
 def dismiss_overlays(driver, wait):
     try:
         btn = wait.until(EC.element_to_be_clickable(
             (By.XPATH, "//div[@role='button' and @aria-label='Close']")))
         btn.click()
-        print("Closed overlay")
         time.sleep(1)
     except Exception:
         pass
 
-# ── Login ─────────────────────────────────────────────────────────────────────
+# ─── Login Routine ─────────────────────────────────────────────────────────────
 def login_to_instagram(driver, wait) -> bool:
     LOGIN_URL = "https://www.instagram.com/accounts/login/"
+    # one-time cookie load
+    load_cookies(driver, wait)
+    driver.get(LOGIN_URL)
+    time.sleep(2)
+
+    # Accept cookie banner if present
+    try:
+        btn = wait.until(EC.element_to_be_clickable(
+            (By.XPATH, "//button[normalize-space()='Allow all cookies']")))
+        btn.click(); time.sleep(1)
+    except Exception:
+        pass
+
+    dismiss_overlays(driver, wait)
+
     for attempt in range(1, 6):
-        driver.get(LOGIN_URL)
-        time.sleep(3)
-        load_cookies(driver)
-
-        # Accept cookies banner if present
         try:
-            btn = wait.until(EC.element_to_be_clickable(
-                (By.XPATH, "//button[normalize-space()='Allow all cookies']")))
-            btn.click()
-            print("🍪 Accepted cookies")
-            time.sleep(1)
-        except TimeoutException:
-            pass
-
-        dismiss_overlays(driver, wait)
-
-        try:
-            user_input = wait.until(EC.element_to_be_clickable((By.NAME, "username")))
-            pass_input = wait.until(EC.element_to_be_clickable((By.NAME, "password")))
-
-            # Enter credentials
-            user_input.clear()
-            user_input.send_keys(USERNAME)
-
-            pass_input.clear()
-            pass_input.send_keys(PASSWORD)
-            pass_input.send_keys(Keys.ENTER)
+            user = wait.until(EC.element_to_be_clickable((By.NAME, "username")))
+            pwd  = wait.until(EC.element_to_be_clickable((By.NAME, "password")))
+            user.clear(); user.send_keys(USERNAME)
+            pwd.clear();  pwd.send_keys(PASSWORD); pwd.send_keys(Keys.ENTER)
             print(f"Submitted login (attempt {attempt})")
             driver.save_screenshot("login_attempt.png")
-            time.sleep(6)
+            time.sleep(5)
 
             save_cookies(driver)
 
-            # Check for checkpoint
-            if "challenge" in driver.current_url:
-                print("⚠️ Checkpoint encountered")
-                return False
-
-            # Confirm home icon
+            # Wait for Home icon to confirm login
             wait.until(EC.presence_of_element_located((By.XPATH, "//svg[@aria-label='Home']")))
             print("✅ Login successful")
             driver.save_screenshot("login_success.png")
             return True
 
-        except TimeoutException as e:
-            print(f"Login attempt {attempt} timed out:", e)
-            time.sleep(5)
+        except TimeoutException:
+            print(f"Login attempt {attempt} timed out, retrying...")
+            time.sleep(3)
+            driver.get(LOGIN_URL)
+        except WebDriverException:
+            print("⚠️ Browser crashed during login, will restart")
+            return False
 
     print("❌ All login attempts failed")
     return False
 
-# ── Main ──────────────────────────────────────────────────────────────────────
+# ─── Main Flow ─────────────────────────────────────────────────────────────────
 def main():
-    # Kill existing Chrome to avoid conflicts
+    # Kill leftover Chrome processes
     subprocess.run(["pkill", "-f", "chrome"], check=False)
     time.sleep(1)
 
-    # Chrome options
-    chrome_options = webdriver.ChromeOptions()
-    chrome_options.add_argument("--window-size=1280,800")
-    chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_opts = webdriver.ChromeOptions()
+    chrome_opts.add_argument("--headless")
+    chrome_opts.add_argument("--no-sandbox")
+    chrome_opts.add_argument("--disable-dev-shm-usage")
+    chrome_opts.add_argument("--window-size=1280,800")
 
-    # Launch
     service = ChromeService(executable_path=CHROMEDRIVER_PATH)
-    driver = webdriver.Chrome(service=service, options=chrome_options)
-    wait = WebDriverWait(driver, 15)
+    driver  = webdriver.Chrome(service=service, options=chrome_opts)
+    wait    = WebDriverWait(driver, 15)
 
-    if not login_to_instagram(driver, wait):
-        print("Login failed; exiting.")
+    # Attempt login, with one restart if tab crash occurs
+    for _ in range(2):
+        if login_to_instagram(driver, wait):
+            break
+        driver.quit()
+        driver = webdriver.Chrome(service=service, options=chrome_opts)
+        wait   = WebDriverWait(driver, 15)
+    else:
+        print("Unable to login after restart; exiting.")
         driver.quit()
         return
 
     dismiss_overlays(driver, wait)
 
-    try:
-        # Close "Save Your Login Info?" pop-ups
+    # Handle "Not Now" pop-ups
+    for _ in range(2):
+        try:
+            btn = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[text()='Not Now']")))
+            btn.click(); time.sleep(1)
+        except Exception:
+            break
+
+    # Scheduled posting
+    for post in POST_SCHEDULE:
+        print(f"\nPosting {post['image']} at {post['time']}")
+        wait_until(post["time"])
+        dismiss_overlays(driver, wait)
+
+        inp = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='file']")))
+        inp.send_keys(post["image"])
+        time.sleep(2)
+
+        # Click "Next" twice
         for _ in range(2):
-            try:
-                btn = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[text()='Not Now']")))
-                btn.click()
-                print("Clicked 'Not Now'")
-                time.sleep(1)
-            except Exception:
-                break
+            nxt = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[normalize-space()='Next']")))
+            nxt.click(); time.sleep(2)
 
-        # Scheduled posts
-        for post in POST_SCHEDULE:
-            print(f"\nPosting {post['image']} at {post['time']}")
-            wait_until(post["time"])
-            dismiss_overlays(driver, wait)
+        cap = wait.until(EC.presence_of_element_located(
+            (By.XPATH, "//textarea[@aria-label='Write a caption…']")))
+        cap.send_keys(post["caption"]); time.sleep(1)
 
-            # File upload input
-            inp = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='file']")))
-            inp.send_keys(post["image"])
-            print("📤 Uploaded image")
-            time.sleep(2)
+        share = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[normalize-space()='Share']")))
+        share.click(); time.sleep(10)
+        print("✅ Posted!")
 
-            # Click through Next, Next
-            for _ in range(2):
-                nxt = wait.until(EC.element_to_be_clickable(
-                    (By.XPATH, "//button[normalize-space()='Next']")))
-                nxt.click()
-                print("➡️ Clicked Next")
-                time.sleep(2)
+        driver.refresh()
+        time.sleep(3)
 
-            # Caption
-            cap = wait.until(EC.presence_of_element_located(
-                (By.XPATH, "//textarea[@aria-label='Write a caption…']")))
-            cap.send_keys(post["caption"])
-            print("✍️ Caption entered")
-            time.sleep(1)
-
-            # Share
-            share = wait.until(EC.element_to_be_clickable(
-                (By.XPATH, "//button[normalize-space()='Share']")))
-            share.click()
-            print("🚀 Clicked Share")
-            time.sleep(10)
-
-            print("✅ Posted!")
-            driver.refresh()
-            time.sleep(3)
-
-    except Exception as e:
-        print("Error during posting:", type(e).__name__, e)
-        driver.save_screenshot("error.png")
-
-    finally:
-        driver.quit()
-
+    driver.quit()
 
 if __name__ == "__main__":
     main()
