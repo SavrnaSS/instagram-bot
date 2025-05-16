@@ -1,7 +1,5 @@
-selenium-wire==5.1.0
 selenium==4.21.0
 pytz
 python-dotenv
 packaging
 setuptools
-blinker==1.4.2

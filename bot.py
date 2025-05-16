@@ -20,8 +20,8 @@ from selenium.common.exceptions import TimeoutException, ElementClickIntercepted
 load_dotenv()
 
 # ─── Settings ────────────────────────────────────────────────────────────────
-USERNAME          = os.getenv("IG_USERNAME", "bellequotient")
-PASSWORD          = os.getenv("IG_PASSWORD", "8426G65AKI51638286")
+USERNAME          = os.getenv("US", "bellequotient")
+PASSWORD          = os.getenv("PAS", "8426G65AKI51638286")
 CHROMEDRIVER_PATH = shutil.which("chromedriver") or "/usr/local/bin/chromedriver"
 BASE_IMAGE_DIR    = os.getenv("BASE_IMAGE_DIR", "/home/ubuntu/instagram_bot/pictures_selfie")
 POST_SCHEDULE     = [
