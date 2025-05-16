@@ -1,8 +1,13 @@
 FROM python:3.10-slim
 
-# Install only what instagrapi needs (mostly build tools for cryptography)
+# Install system dependencies for instagrapi (Pillow, cryptography, etc.)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-     build-essential libffi-dev libssl-dev git \
+    build-essential \
+    libffi-dev \
+    libssl-dev \
+    libjpeg-dev \
+    zlib1g-dev \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
