@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+env/
+venv/
+.settings.json  # if you prefer not pushing creds
