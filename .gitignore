@@ -2,6 +2,6 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
-env/
+.env
 venv/
-.settings.json  # if you prefer not pushing creds
+.settings.json  # <-- Only if you want to keep credentials secret

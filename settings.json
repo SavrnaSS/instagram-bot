@@ -1,8 +1,21 @@
 {
-    "username": "bellequotient",
-    "password": "8426G65AKI51638286",
-    "sleep_hours": 24,
-    "image_path": "selfie_10.jpg",
-    "caption": "hey"
-  }
-  
+  "username": "bellequotient",
+  "password": "8426G65AKI51638286",
+  "posts": [
+    {
+      "image_path": "selfie_10.jpg",
+      "caption": "Good morning, world! 🌞",
+      "post_time": "2025-05-16T20:34:00"
+    },
+    {
+      "image_path": "selfie_12.jpg",
+      "caption": "Lunch vibes 🥗",
+      "post_time": "2025-05-16T20:35:00"
+    },
+    {
+      "image_path": "selfie_10.jpg",
+      "caption": "Evening chill 🌆",
+     "post_time": "2025-05-16T20:40:00"
+    }
+  ]
+}
