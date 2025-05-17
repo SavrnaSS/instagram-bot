@@ -6,6 +6,7 @@ from instagrapi import Client
 import os
 
 SETTINGS_FILE = "settings.json"
+SESSION_FILE = "session.json"
 
 def load_settings():
     if not os.path.exists(SETTINGS_FILE):
@@ -34,11 +35,10 @@ def main():
         return
 
     posts = settings["posts"]
-    # Ensure every post has a "posted" flag
+    # Make sure each post has a "posted" flag
     for p in posts:
         p.setdefault("posted", False)
 
-    # Login
     cl = Client()
     username = posts[0].get("username")
     password = posts[0].get("password")
@@ -46,17 +46,27 @@ def main():
         print("❌ Error: username/password missing in settings.json")
         return
 
-    print(f"🔑 Logging in as {username}...")
-    try:
+    # Try loading saved session to avoid re-login
+    if os.path.exists(SESSION_FILE):
+        try:
+            cl.load_settings(SESSION_FILE)
+            cl.login(username, password)
+            print("✅ Logged in using saved session!")
+        except Exception as e:
+            print(f"⚠️ Saved session invalid or expired: {e}")
+            print("🔑 Logging in fresh...")
+            cl = Client()
+            cl.login(username, password)
+            cl.dump_settings(SESSION_FILE)
+            print("✅ Login successful and session saved!")
+    else:
+        # No saved session, login fresh and save session
         cl.login(username, password)
-        print("✅ Login successful!")
-    except Exception as e:
-        print(f"❌ Login failed: {e}")
-        return
+        cl.dump_settings(SESSION_FILE)
+        print("✅ Login successful and session saved!")
 
     tz = pytz.timezone("Asia/Kolkata")
 
-    # Main loop
     while True:
         now = datetime.now(tz)
         print(f"\n⏰ Current IST time: {now.strftime('%Y-%m-%d %H:%M:%S')}")
@@ -66,7 +76,6 @@ def main():
             if post["posted"]:
                 continue  # skip already posted
 
-            # parse scheduled time
             try:
                 sched = datetime.fromisoformat(post["post_time"])
                 sched = tz.localize(sched)
@@ -96,7 +105,6 @@ def main():
         if any_posted:
             save_settings({"posts": posts})
 
-        # Check again in 60 seconds
         print("🛌 Sleeping for 60 seconds…")
         time.sleep(60)
 
