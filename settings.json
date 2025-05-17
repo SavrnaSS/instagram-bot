@@ -5,7 +5,7 @@
       "password": "8426G65AKI51638286",
       "image_path": "Pictures/20.JPG",
       "caption": "No fancy words, just good vibes today",
-      "post_time": "2025-05-17T14:25:00",
+      "post_time": "2025-05-17T14:58:00",
       "posted": false
     },
     {
@@ -160,5 +160,10 @@
       "post_time": "2025-05-27T08:00:00",
       "posted": false
     }
+  ], 
+  "target_post_urls": [
+    "https://www.instagram.com/p/POST_ID_1/",
+    "https://www.instagram.com/p/POST_ID_2/",
+    "https://www.instagram.com/p/POST_ID_3/"
   ]
 }
