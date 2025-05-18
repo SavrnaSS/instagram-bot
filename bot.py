@@ -81,7 +81,6 @@ def follow_commenters_of_post(cl, media_id, followed_users, max_follow=80):
         commenters = cl.media_comments(media_id, amount=1000)
     except LoginRequired:
         print("⚠️ Session expired during fetching comments, re-logging in...")
-        # Note: You may want to re-login outside of this function to avoid recursion
         raise
 
     for comment in commenters:
@@ -93,10 +92,12 @@ def follow_commenters_of_post(cl, media_id, followed_users, max_follow=80):
                 print(f"➕ Followed: {username} (user_id: {user_id})")
                 followed_users.append(user_id)
                 new_follows += 1
-                time.sleep(5)  # small delay between follows to avoid spam detection
+                time.sleep(5)  # avoid spam detection
             except Exception as e:
                 print(f"❌ Failed to follow {username}: {e}")
-                # Continue trying others
+                if "feedback_required" in str(e).lower():
+                    print("🚫 Instagram has temporarily blocked following. Exiting follow task early.")
+                    break
     return new_follows
 
 def main():
